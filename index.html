@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Charging Visualizer - Pivot Table Enabled</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tabulator -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div id="layout">
+
+        <div id="tablePanel">
+            <div id="topbar">
+                <label>Upload JSON:</label>
+                <input type="file" id="fileInput" accept=".json">
+
+                <ul id="pivotList" class="pivot-list">
+                    <li data-value="centroid_type">Type</li>
+                    <li data-value="country">Country</li>
+                    <li data-value="amperage">Amperage</li>
+                    <li data-value="centroid_name">Centroid Name</li>
+                    <li data-value="hour">Hour</li>
+                    <li data-value="bms">BMS ID</li>
+                </ul>
+
+                <select id="pivotSelect" name="pivot[]" multiple hidden></select>
+
+                <label hidden>Value:</label>
+                <select id="pivotValueField" hidden>
+                    <option value="soc_lost">SOC Lost</option>
+                </select>
+
+                <label hidden>Type:</label>
+                <select id="pivotValueType" hidden>
+                    <option value="sum">Sum</option>
+                    <option value="count">Count</option>
+                    <option value="avg">Average</option>
+                    <option value="min">Min</option>
+                    <option value="max">Max</option>
+                </select>
+
+                <br>
+                <label> Sort SOC Lost Descending </label>
+                <button onclick="sort_by_soc(pingTableTabulator)">Sort</button>
+
+            </div>
+            <div id="pingTable"></div>
+        </div>
+
+        <div id="mapPanel">
+            <div id="map"></div>
+        </div>
+
+        <div id="detailPanel">
+            <h3>Centroid Details</h3>
+            <div id="centroidDetails">Click a centroid.</div>
+
+            <div class="chart-box">
+                <canvas id="hourChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <canvas id="amperageChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="logic.js"></script>
+
+</body>
+
+</html>
