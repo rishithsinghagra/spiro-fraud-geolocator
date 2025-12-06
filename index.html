@@ -32,6 +32,11 @@
                 <label>Upload JSON:</label>
                 <input type="file" id="fileInput" accept=".json">
 
+                <h1 id="fileDateTitle">
+                    No file loaded
+                </h1>
+
+
                 <ul id="pivotList" class="pivot-list">
                     <li data-value="centroid_type">Type</li>
                     <li data-value="country">Country</li>
@@ -58,8 +63,7 @@
                 </select>
 
                 <br>
-                <label> Sort SOC Lost Descending </label>
-                <button onclick="sort_by_soc(pingTableTabulator)">Sort</button>
+                <button onclick="sort_by_soc(pingTableTabulator)">Sort SOC Lost Descending</button>
 
             </div>
             <div id="pingTable"></div>
@@ -80,6 +84,11 @@
             <div class="chart-box">
                 <canvas id="amperageChart"></canvas>
             </div>
+
+            <div class="chart-box">
+                <canvas id="bmsChart"></canvas>
+            </div>
+
         </div>
 
     </div>

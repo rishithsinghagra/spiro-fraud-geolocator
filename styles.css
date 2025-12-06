@@ -109,3 +109,10 @@ body {
 .tabulator-group-level-2 { font-weight: 500 !important; }
 .tabulator-group-level-3 { font-weight: 300 !important; }
 .tabulator-group-level-4 { font-weight: 100 !important; }
+
+.fileDateTitle {
+    text-align:center;
+    font-size:32px;
+    margin:10px 0;
+    font-weight:bold;
+}

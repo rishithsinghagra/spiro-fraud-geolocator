@@ -6,6 +6,8 @@ let centroidLookup = {};
 let pingTableTabulator = null;
 let hourChart = null;
 let amperageChart = null;
+let bmsChart = null;
+
 
 let centroidMarkers = {};
 let centroidLayer;
@@ -56,12 +58,24 @@ function setupPivotList() {
 // ------------------------------------------------------------
 document.getElementById("fileInput").addEventListener("change", async evt => {
     const file = evt.target.files[0];
-    jsonData = JSON.parse(await file.text());
 
+    // ---------- NEW DATE EXTRACTION ----------
+    // filename expected to contain ISO date at the end before extension
+    // Example: charge_data_2025-02-17.json → extracts "2025-02-17"
+    const name = file.name;
+    const isoMatch = name.match(/\d{4}-\d{2}-\d{2}/);
+    const isoDate = isoMatch ? isoMatch[0] : "Unknown Date";
+
+    // Update the big title
+    document.getElementById("fileDateTitle").textContent = "Data Date: " + isoDate;
+    // -----------------------------------------
+
+    jsonData = JSON.parse(await file.text());
     jsonData.centroids.forEach(c => (centroidLookup[c.id] = c));
 
     renderAll();
 });
+
 
 function renderAll() {
     renderTable(jsonData.pings);
@@ -86,7 +100,7 @@ function pad30(n) {
     return `<span style="white-space:pre;color:black;display:inline-block;min-width:50%">${String(n ?? 0)}</span>`;
 }
 
-function getGroupDepth(group) {
+function getGroupDepthOutwards(group) {
     const subs = group.getSubGroups();
 
     // No subgroups → depth is 1 (this group only)
@@ -105,6 +119,18 @@ function getGroupDepth(group) {
 
     // Add 1 for the current group level
     return 1 + maxDepth;
+}
+
+function getGroupDepth(group) {
+    let depth = 1;
+    let parent = group.getParentGroup();
+
+    while (parent) {
+        depth++;
+        parent = parent.getParentGroup();
+    }
+
+    return depth;
 }
 
 function getAllRows(group) {
@@ -151,6 +177,8 @@ function sort_by_soc(tabulatorTable) {
         { column: "group_sort_key_1", dir: "desc" },
     ])
 }
+
+var autoSorted = false;
 
 function renderTable(pings) {
     const tableData = pings.map(p => {
@@ -247,15 +275,24 @@ function renderTable(pings) {
     });
 
     pingTableTabulator.on("renderComplete", function () {
-        const lastLevelGroups = getAllLastLevelGroups(pingTableTabulator);
-        lastLevelGroups.forEach(element => {
-            const el = element.getElement();
-            const toggle = el.querySelector(".tabulator-group-toggle");
-            if (toggle) {
-                toggle.style.display = "none";     // hide it
-                toggle.onclick = null;             // disable click
-            }
-        });
+
+        if (!autoSorted) {
+            autoSorted = true;
+            sort_by_soc(pingTableTabulator);
+        } else if (autoSorted) {
+            const lastLevelGroups = getAllLastLevelGroups(pingTableTabulator);
+            lastLevelGroups.forEach(element => {
+                const el = element.getElement();
+                const toggle = el.querySelector(".tabulator-group-toggle");
+                if (toggle) {
+                    toggle.style.display = "none";     // hide it
+                    toggle.onclick = null;             // disable click
+                }
+            });
+        }
+        else {
+            return;
+        }
     });
 
     pingTableTabulator.on("groupMouseEnter", function (e, group) {
@@ -308,6 +345,10 @@ function renderTable(pings) {
             const bounds = L.latLngBounds(latlngs);
             map.flyToBounds(bounds, { padding: [50, 50], animate: false });
         }
+    });
+
+    pingTableTabulator.on("groupVisibilityChanged", function (group) {
+        pingTableTabulator.setSort(pingTableTabulator.getSorters());
     });
 
 }
@@ -377,6 +418,7 @@ function showCentroidDetails(c) {
 
     updateHourChart(pings);
     updateAmperageChart(pings);
+    updateBmsChart(pings);
 }
 
 
@@ -389,7 +431,13 @@ function updateHourChart(pings) {
     hourChart = new Chart(document.getElementById("hourChart"), {
         type: "bar",
         data: { labels: [...Array(24).keys()], datasets: [{ data: counts }] },
-        options: { plugins: { legend: { display: false } } }
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: "UTC Hour" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            }
+        }
     });
 }
 
@@ -407,14 +455,60 @@ function updateAmperageChart(pings) {
     amperageChart = new Chart(document.getElementById("amperageChart"), {
         type: "bar",
         data: { labels: ["<18A", ">=18A"], datasets: [{ data: [counts["<18A"], counts[">=18A"]] }] },
-        options: { plugins: { legend: { display: false } } }
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: "Amperage" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            }
+        }
     });
 }
+
+function updateBmsChart(pings) {
+    // Aggregate SOC lost by BMS
+    const map = new Map();
+    pings.forEach(p => {
+        const key = p.bms_id;
+        const prev = map.get(key) || 0;
+        map.set(key, prev + p.soc_lost);
+    });
+
+    // Build arrays for Chart.js
+    const labels = [...map.keys()];
+    const values = [...map.values()];
+
+    if (bmsChart) bmsChart.destroy();
+
+    bmsChart = new Chart(document.getElementById("bmsChart"), {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [
+                {
+                    data: values
+                }
+            ]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: "BMS ID" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            }
+        }
+    });
+}
+
 
 // ------------------------------------------------------------
 // PIVOT UPDATE
 // ------------------------------------------------------------
 function updatePivot() {
-    if (jsonData) pingTableTabulator.setGroupBy(getSelectedPivotFields());
-    if (pingTableTabulator) sort_by_soc(pingTableTabulator);
+    if (autoSorted) {
+        autoSorted = false;
+    }
+    if (pingTableTabulator) pingTableTabulator.setGroupBy(getSelectedPivotFields());
 }
+
+
