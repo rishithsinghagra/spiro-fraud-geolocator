@@ -12,6 +12,12 @@ let bmsChart = null;
 let centroidMarkers = {};
 let centroidLayer;
 let map;
+let useLocalHour = false;
+let detectedTimeZone = "UTC";
+let currentDetailPings = [];
+let dataDate = null; // ISO date string (YYYY-MM-DD) extracted from filename
+let currentDetailCentroid = null;
+let selectedCentroidLayer = null;
 
 // ------------------------------------------------------------
 // Init: map & UI
@@ -19,7 +25,29 @@ let map;
 window.onload = () => {
     setupPivotList();
     setupMap();
+    setupHourToggle();
 };
+
+function setupHourToggle() {
+    try {
+        detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch (e) {
+        detectedTimeZone = "UTC";
+    }
+
+    const tzSpan = document.getElementById("detectedTimezone");
+    if (tzSpan) tzSpan.textContent = detectedTimeZone;
+
+    const cb = document.getElementById("hourLocalToggle");
+    if (cb) {
+        cb.checked = false; // default UTC
+        cb.addEventListener("change", () => {
+            useLocalHour = cb.checked;
+            // re-render hour chart for current pings
+            updateHourChart(currentDetailPings);
+        });
+    }
+}
 
 // ------------------------------------------------------------
 // PIVOT LIST / SELECT SYNC
@@ -68,6 +96,8 @@ document.getElementById("fileInput").addEventListener("change", async evt => {
 
     // Update the big title
     document.getElementById("fileDateTitle").textContent = "Data Date: " + isoDate;
+    // store data date for hour labeling (if available)
+    dataDate = isoDate !== "Unknown Date" ? isoDate : null;
     // -----------------------------------------
 
     jsonData = JSON.parse(await file.text());
@@ -94,11 +124,6 @@ function getSelectedPivotFields() {
 // ------------------------------------------------------------
 // RENDER TABLE
 // ------------------------------------------------------------
-
-
-function pad30(n) {
-    return `<span style="white-space:pre;color:black;display:inline-block;min-width:50%">${String(n ?? 0)}</span>`;
-}
 
 function getGroupDepthOutwards(group) {
     const subs = group.getSubGroups();
@@ -209,8 +234,10 @@ function renderTable(pings) {
         return;
     }
 
+
     // create table
-    pingTableTabulator = new Tabulator("#pingTable", {
+    pingTableTabulator = new TabulatorFull$1("#pingTable", {
+        renderVertical: "basic",
         data: tableData,
         layout: "fitColumns",
         height: "100%",
@@ -220,7 +247,7 @@ function renderTable(pings) {
         groupStartOpen: false,
         groupClosedShowCalcs: true,
         rowFormatter: function (row) {
-            row.getElement().style.display = "none";   // hides row visually
+            const el = row.getElement();
         },
 
         initialSort: [
@@ -243,7 +270,30 @@ function renderTable(pings) {
                 pingrow.update({ [group_label_string]: paddedSum });
             });
 
-            return pad30(value) + `   -   SOC Lost: ${sum}`;
+            const container = document.createElement("div");
+            container.className = "group-header-container";
+
+            // Label
+            const labelDiv = document.createElement("div");
+            labelDiv.className = "group-header-label";
+            labelDiv.textContent = value;
+            container.appendChild(labelDiv);
+
+            // SOC Lost
+            const socDiv = document.createElement("div");
+            socDiv.className = "group-header-soc";
+            socDiv.textContent = `SOC Lost: ${sum}`;
+            container.appendChild(socDiv);
+
+            // Export Button
+            const btn = document.createElement("button");
+            btn.textContent = "Export CSV";
+            btn.addEventListener("click", function (e) {
+                exportGroupCSV(group, value);
+            });
+            container.appendChild(btn);
+
+            return container;
         },
 
         columns: [
@@ -293,6 +343,7 @@ function renderTable(pings) {
         else {
             return;
         }
+
     });
 
     pingTableTabulator.on("groupMouseEnter", function (e, group) {
@@ -345,6 +396,12 @@ function renderTable(pings) {
             const bounds = L.latLngBounds(latlngs);
             map.flyToBounds(bounds, { padding: [50, 50], animate: false });
         }
+        // If this group contains exactly one unique centroid, open its details
+        if (ids.size === 1) {
+            const onlyId = [...ids][0];
+            const centroid = centroidLookup[onlyId];
+            if (centroid) showCentroidDetails(centroid);
+        }
     });
 
     pingTableTabulator.on("groupVisibilityChanged", function (group) {
@@ -360,7 +417,14 @@ function setupMap() {
     map = L.map("map").setView([0, 0], 2);
     centroidLayer = L.layerGroup().addTo(map);
 
+    // layer to show the currently-selected centroid (blue highlight)
+    selectedCentroidLayer = L.layerGroup().addTo(map);
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    // Update visibility warning for the currently-open centroid when the map finishes moving
+    map.on('moveend', () => {
+        if (currentDetailCentroid) updateCentroidVisibilityWarning(currentDetailCentroid);
+    });
 }
 
 function renderCentroids(centroids) {
@@ -400,6 +464,8 @@ function unhighlightCentroid(id) {
 
 function showCentroidDetails(c) {
     const pings = jsonData.pings.filter(p => p.centroid_id === c.id);
+    currentDetailPings = pings;
+    currentDetailCentroid = c;
 
     const totalSoc = pings.reduce((s, p) => s + p.soc_lost, 0);
     const gmUrl = `https://www.google.com/maps?q=${c.latitude},${c.longitude}`;
@@ -413,28 +479,77 @@ function showCentroidDetails(c) {
             Open in Google Maps
         </a>
         <br><br>
+        <button id="jumpToMapButton" style="padding:6px 8px;border-radius:4px;border:1px solid #ccc;background:#fff;cursor:pointer">Jump to map</button>
+        <br><br>
         <b>Total SOC Lost:</b> ${totalSoc}
+        <div id="centroidVisibilityWarning" style="color:#a00;margin-top:8px;display:none;"></div>
     `;
 
-    updateHourChart(pings);
+    // attach click handler to jump the map to this centroid
+    const jumpBtn = document.getElementById("jumpToMapButton");
+    if (jumpBtn) {
+        jumpBtn.addEventListener("click", () => {
+            if (map && c.latitude != null && c.longitude != null) {
+                // zoom level chosen to show centroid context; adjust if needed
+                try {
+                    map.flyTo([c.latitude, c.longitude], 20, { animate: false });
+                } catch (e) {
+                    map.setView([c.latitude, c.longitude], 20);
+                }
+            }
+        });
+    }
+    // update visibility warning now that details are rendered
+    updateCentroidVisibilityWarning(c);
+
+    // show blue selected-centroid highlight
+    highlightSelectedCentroid(c);
+
+    updateHourChart(currentDetailPings);
     updateAmperageChart(pings);
     updateBmsChart(pings);
 }
 
 
 function updateHourChart(pings) {
+    pings = pings || [];
+
+    // Aggregate by UTC hour for the data date (0-23). This preserves continuous-day ordering.
     const counts = Array(24).fill(0);
-    pings.forEach(p => counts[p.hour] += p.soc_lost);
+    pings.forEach(p => {
+        const hour = Number(p.hour);
+        if (Number.isNaN(hour) || hour < 0 || hour > 23) return;
+        counts[hour] += p.soc_lost;
+    });
+
+    // Build labels for each UTC hour in the dataDate. If dataDate is missing, fall back to a fixed date.
+    const iso = dataDate || "2020-01-01";
+    const parts = iso.split("-").map(s => Number(s));
+    const y = parts[0] || 2020;
+    const m = parts[1] || 1;
+    const d = parts[2] || 1;
+
+    const labels = [];
+    const pad = n => String(n).padStart(2, "0");
+    for (let utcHour = 0; utcHour < 24; utcHour++) {
+        const utcMs = Date.UTC(y, m - 1, d, utcHour);
+        if (useLocalHour) {
+            const local = new Date(utcMs);
+            labels.push(`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())} ${pad(local.getHours())}:00`);
+        } else {
+            labels.push(`${y}-${pad(m)}-${pad(d)} ${pad(utcHour)}:00 UTC`);
+        }
+    }
 
     if (hourChart) hourChart.destroy();
 
     hourChart = new Chart(document.getElementById("hourChart"), {
         type: "bar",
-        data: { labels: [...Array(24).keys()], datasets: [{ data: counts }] },
+        data: { labels, datasets: [{ data: counts }] },
         options: {
             plugins: { legend: { display: false } },
             scales: {
-                x: { title: { display: true, text: "UTC Hour" } },
+                x: { title: { display: true, text: useLocalHour ? `Local Hour (${detectedTimeZone})` : "UTC Hour" } },
                 y: { title: { display: true, text: "SOC Lost" } }
             }
         }
@@ -498,6 +613,121 @@ function updateBmsChart(pings) {
             }
         }
     });
+}
+
+// -----------------------------
+// Visibility helpers
+// -----------------------------
+function isCentroidInView(c) {
+    if (!map || c == null || c.latitude == null || c.longitude == null) return false;
+    try {
+        return map.getBounds().contains(L.latLng(c.latitude, c.longitude));
+    } catch (e) {
+        return false;
+    }
+}
+
+function updateCentroidVisibilityWarning(c) {
+    const container = document.getElementById("centroidDetails");
+    if (!container) return;
+
+    let warn = document.getElementById("centroidVisibilityWarning");
+    // if the warning placeholder isn't present (older markup), create one
+    if (!warn) {
+        warn = document.createElement('div');
+        warn.id = 'centroidVisibilityWarning';
+        warn.style.color = '#a00';
+        warn.style.marginTop = '8px';
+        container.appendChild(warn);
+    }
+
+    if (!c) {
+        warn.style.display = 'none';
+        return;
+    }
+
+    const visible = isCentroidInView(c);
+    if (visible) {
+        warn.style.display = 'none';
+        warn.textContent = '';
+    } else {
+        warn.style.display = 'block';
+        warn.textContent = 'WARNING: this centroid is outside the current map view. Use "Jump to map" to center it.';
+    }
+}
+
+// Highlight helpers for the currently-selected centroid (blue)
+function highlightSelectedCentroid(c) {
+    if (!selectedCentroidLayer) return;
+    // clear previous selection
+    selectedCentroidLayer.clearLayers();
+    if (!c || c.latitude == null || c.longitude == null) return;
+
+    try {
+        const marker = L.circleMarker([c.latitude, c.longitude], {
+            radius: 12,
+            color: 'blue',
+            fillColor: 'blue',
+            fillOpacity: 0.6,
+            weight: 2
+        }).addTo(selectedCentroidLayer);
+        if (marker.bringToFront) marker.bringToFront();
+    } catch (e) {
+        // silently ignore if map/leaflet not available
+    }
+}
+
+// Export helper: given a Tabulator group, export unique centroids as CSV
+function exportGroupCSV(group, labelHint) {
+    const rows = getAllRows(group || {});
+
+    // collect unique centroid ids
+    const ids = new Set();
+    rows.forEach(r => {
+        const id = r.getData?.()?.centroid_id ?? r.centroid_id;
+        if (id != null) ids.add(String(id));
+    });
+
+    if (ids.size === 0) {
+        alert("No centroids to export for this group");
+        return;
+    }
+
+    // CSV header
+    const header = ["centroid_name", "total_leakage", "latitude", "longitude", "google_maps_link"];
+    const lines = [header.join(",")];
+
+    ids.forEach(id => {
+        const c = centroidLookup[id];
+        if (!c) return;
+        const name = String(c.name ?? "").replace(/"/g, '""');
+        const lat = c.latitude;
+        const lon = c.longitude;
+        // add total leakage calculation for this centroid id
+        const pings = jsonData.pings.filter(p => p.centroid_id === c.id);
+        const totalSoc = pings.reduce((s, p) => s + p.soc_lost, 0);
+        const gm = `https://www.google.com/maps?q=${lat},${lon}`;
+        // wrap text fields in quotes
+        lines.push(`"${name}",${totalSoc},${lat},${lon},"${gm.replace(/"/g, '""')}"`);
+    });
+
+    const csv = lines.join("\n");
+
+    // build filename using label hint and dataDate
+    const safeLabel = String(labelHint || "group").replace(/[^a-z0-9_\-]/gi, "_");
+    const datepart = dataDate || new Date().toISOString().slice(0, 10);
+    const filename = `export_${safeLabel}_${datepart}.csv`;
+
+    // trigger download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 
