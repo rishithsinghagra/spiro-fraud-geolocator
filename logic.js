@@ -7,12 +7,18 @@ let pingTableTabulator = null;
 let hourChart = null;
 let amperageChart = null;
 let bmsChart = null;
+let batteryCentroidChart = null;
+let batteryHourChart = null;
+let batteryAmperageChart = null;
+let currentBatteryId = null;
+let batteryUseLocalHour = true;
+let batteryDetectedTimeZone = "UTC";
 
 
 let centroidMarkers = {};
 let centroidLayer;
 let map;
-let useLocalHour = false;
+let useLocalHour = true;
 let detectedTimeZone = "UTC";
 let currentDetailPings = [];
 let dataDate = null; // ISO date string (YYYY-MM-DD) extracted from filename
@@ -31,8 +37,10 @@ window.onload = () => {
 function setupHourToggle() {
     try {
         detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        batteryDetectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     } catch (e) {
         detectedTimeZone = "UTC";
+        batteryDetectedTimeZone = "UTC";
     }
 
     const tzSpan = document.getElementById("detectedTimezone");
@@ -40,11 +48,16 @@ function setupHourToggle() {
 
     const cb = document.getElementById("hourLocalToggle");
     if (cb) {
-        cb.checked = false; // default UTC
+        cb.checked = true; // default UTC
         cb.addEventListener("change", () => {
             useLocalHour = cb.checked;
-            // re-render hour chart for current pings
             updateHourChart(currentDetailPings);
+            batteryUseLocalHour = cb.checked;
+            if (currentBatteryId) {
+                const batteryPings = jsonData.pings.filter(p => p.bms_id === currentBatteryId);
+                updateBatteryHourChart(batteryPings);
+                displaySwapFlow(currentBatteryId)
+            }
         });
     }
 }
@@ -90,18 +103,17 @@ document.getElementById("fileInput").addEventListener("change", async evt => {
     // ---------- NEW DATE EXTRACTION ----------
     // filename expected to contain ISO date at the end before extension
     // Example: charge_data_2025-02-17.json → extracts "2025-02-17"
-    const name = file.name;
-    const isoMatch = name.match(/\d{4}-\d{2}-\d{2}/);
-    const isoDate = isoMatch ? isoMatch[0] : "Unknown Date";
 
+
+    jsonData = JSON.parse(await file.text());
+    jsonData.centroids.forEach(c => (centroidLookup[c.id] = c));
+
+    const isoDate = jsonData.date
     // Update the big title
     document.getElementById("fileDateTitle").textContent = "Data Date: " + isoDate;
     // store data date for hour labeling (if available)
     dataDate = isoDate !== "Unknown Date" ? isoDate : null;
     // -----------------------------------------
-
-    jsonData = JSON.parse(await file.text());
-    jsonData.centroids.forEach(c => (centroidLookup[c.id] = c));
 
     renderAll();
 });
@@ -380,9 +392,12 @@ function renderTable(pings) {
 
         // Build unique centroid-ID set
         const ids = new Set();
+        const station_names = new Set();
         rows.forEach(row => {
             const id = row.getData().centroid_id;
             if (id != null) ids.add(String(id));
+            const name = row.getData().centroid_name;
+            if (name) station_names.add(name);
         });
 
         // Compute and zoom to bounds
@@ -397,10 +412,16 @@ function renderTable(pings) {
             map.flyToBounds(bounds, { padding: [50, 50], animate: false });
         }
         // If this group contains exactly one unique centroid, open its details
-        if (ids.size === 1) {
+        if (station_names.size === 1) {
             const onlyId = [...ids][0];
             const centroid = centroidLookup[onlyId];
             if (centroid) showCentroidDetails(centroid);
+        }
+
+        const bmsSet = new Set(rows.map(r => r.getData().bms).filter(Boolean));
+        if (bmsSet.size === 1) {
+            const bmsId = [...bmsSet][0];
+            showBatteryDetails(bmsId);
         }
     });
 
@@ -463,7 +484,7 @@ function unhighlightCentroid(id) {
 }
 
 function showCentroidDetails(c) {
-    const pings = jsonData.pings.filter(p => p.centroid_id === c.id);
+    const pings = jsonData.pings.filter(p => centroidLookup[p.centroid_id].name === c.name);
     currentDetailPings = pings;
     currentDetailCentroid = c;
 
@@ -509,6 +530,8 @@ function showCentroidDetails(c) {
     updateAmperageChart(pings);
     updateBmsChart(pings);
 }
+
+
 
 
 function updateHourChart(pings) {
@@ -585,23 +608,25 @@ function updateBmsChart(pings) {
     const map = new Map();
     pings.forEach(p => {
         const key = p.bms_id;
+        if (!key) return;
         const prev = map.get(key) || 0;
         map.set(key, prev + p.soc_lost);
     });
 
-    // Build arrays for Chart.js
     const labels = [...map.keys()];
     const values = [...map.values()];
 
     if (bmsChart) bmsChart.destroy();
 
-    bmsChart = new Chart(document.getElementById("bmsChart"), {
+    const ctx = document.getElementById("bmsChart").getContext("2d");
+    bmsChart = new Chart(ctx, {
         type: "bar",
         data: {
             labels,
             datasets: [
                 {
-                    data: values
+                    data: values,
+                    backgroundColor: "#f54242"
                 }
             ]
         },
@@ -610,10 +635,153 @@ function updateBmsChart(pings) {
             scales: {
                 x: { title: { display: true, text: "BMS ID" } },
                 y: { title: { display: true, text: "SOC Lost" } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const bmsId = labels[idx];
+                if (!bmsId) return;
+                showBatteryDetails(bmsId);
             }
         }
     });
 }
+function showBatteryDetails(bmsId) {
+    if (!jsonData || !bmsId) return;
+    currentBatteryId = bmsId;
+
+    // Filter all pings for this battery
+    const batteryPings = jsonData.pings.filter(p => p.bms_id === bmsId);
+
+    if (batteryPings.length === 0) {
+        document.getElementById("batteryDetails").textContent = "No data for this battery.";
+        return;
+    }
+
+    // Display basic info
+    document.getElementById("batteryDetails").innerHTML = `<b>Battery ID:</b> ${bmsId}<br>Total SOC Lost: ${batteryPings.reduce((s, p) => s + p.soc_lost, 0)}`;
+
+    updateBatteryCentroidChart(batteryPings);
+    updateBatteryHourChart(batteryPings);
+    updateBatteryAmperageChart(batteryPings);
+    displaySwapFlow(bmsId)
+}
+
+
+function updateBatteryCentroidChart(pings) {
+    const mapCentroidMap = new Map(); // label → centroid_id
+    const socMap = new Map(); // label → total SOC lost
+
+    pings.forEach(p => {
+        const cent = centroidLookup[p.centroid_id];
+        if (!cent) return;
+        const label = cent.name || cent.id;
+        mapCentroidMap.set(label, cent.id);
+        socMap.set(label, (socMap.get(label) || 0) + p.soc_lost);
+    });
+
+    const labels = [...socMap.keys()];
+    const values = [...socMap.values()];
+
+    if (batteryCentroidChart) batteryCentroidChart.destroy();
+
+    const ctx = document.getElementById("batteryCentroidChart").getContext("2d");
+    batteryCentroidChart = new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [{ data: values, backgroundColor: "#4287f5" }] },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: "Centroid" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const label = labels[idx];
+                const centroidId = mapCentroidMap.get(label);
+                if (!centroidId) return;
+                const centroid = centroidLookup[centroidId];
+                if (!centroid) return;
+
+                // Fly to centroid on map and show details
+                map.flyTo([centroid.latitude, centroid.longitude], 20, { animate: false });
+                showCentroidDetails(centroid);
+            }
+        }
+    });
+}
+
+function updateBatteryHourChart(pings) {
+    pings = pings || [];
+    const counts = Array(24).fill(0);
+
+    pings.forEach(p => {
+        const hour = Number(p.hour);
+        if (!Number.isNaN(hour) && hour >= 0 && hour < 24) counts[hour] += p.soc_lost;
+    });
+
+    const iso = dataDate || "2020-01-01";
+    const parts = iso.split("-").map(s => Number(s));
+    const y = parts[0] || 2020;
+    const m = parts[1] || 1;
+    const d = parts[2] || 1;
+
+    const labels = [];
+    const pad = n => String(n).padStart(2, "0");
+
+    for (let utcHour = 0; utcHour < 24; utcHour++) {
+        const utcMs = Date.UTC(y, m - 1, d, utcHour);
+        if (batteryUseLocalHour) {
+            const local = new Date(utcMs);
+            labels.push(`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())} ${pad(local.getHours())}:00`);
+        } else {
+            labels.push(`${y}-${pad(m)}-${pad(d)} ${pad(utcHour)}:00 UTC`);
+        }
+    }
+
+    if (batteryHourChart) batteryHourChart.destroy();
+    batteryHourChart = new Chart(document.getElementById("batteryHourChart"), {
+        type: "bar",
+        data: { labels, datasets: [{ data: counts }] },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: batteryUseLocalHour ? `Local Hour (${batteryDetectedTimeZone})` : "UTC Hour" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            }
+        }
+    });
+}
+
+
+function updateBatteryAmperageChart(pings) {
+    const bins = { "<18A": 0, ">=18A": 0 };
+    pings.forEach(p => {
+        const a = p.amperage;
+        if (typeof a === "number") bins[a < 18 ? "<18A" : ">=18A"] += p.soc_lost;
+        else if (typeof a === "string") bins[a.startsWith("<") ? "<18A" : ">=18A"] += p.soc_lost;
+    });
+
+    const labels = ["<18A", ">=18A"];
+    const data = [bins["<18A"], bins[">=18A"]];
+
+    if (batteryAmperageChart) batteryAmperageChart.destroy();
+    batteryAmperageChart = new Chart(document.getElementById("batteryAmperageChart"), {
+        type: "bar",
+        data: { labels, datasets: [{ data }] },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: "Amperage" } },
+                y: { title: { display: true, text: "SOC Lost" } }
+            }
+        }
+    });
+}
+
+
+
 
 // -----------------------------
 // Visibility helpers
@@ -681,14 +849,14 @@ function highlightSelectedCentroid(c) {
 function exportGroupCSV(group, labelHint) {
     const rows = getAllRows(group || {});
 
-    // collect unique centroid ids
-    const ids = new Set();
+    // collect unique centroid names
+    const names = new Set();
     rows.forEach(r => {
-        const id = r.getData?.()?.centroid_id ?? r.centroid_id;
-        if (id != null) ids.add(String(id));
+        const name = r.getData?.()?.centroid_name ?? r.centroid_name;
+        if (name != null) names.add(String(name));
     });
 
-    if (ids.size === 0) {
+    if (names.size === 0) {
         alert("No centroids to export for this group");
         return;
     }
@@ -697,14 +865,16 @@ function exportGroupCSV(group, labelHint) {
     const header = ["centroid_name", "total_leakage", "latitude", "longitude", "google_maps_link"];
     const lines = [header.join(",")];
 
-    ids.forEach(id => {
+    names.forEach(name => {
+        // find the first matching centroid by name
+        const id = Object.values(centroidLookup).find(c => c.name === name)?.id;
+        if (!id) return; // skip if no centroid found
         const c = centroidLookup[id];
         if (!c) return;
-        const name = String(c.name ?? "").replace(/"/g, '""');
         const lat = c.latitude;
         const lon = c.longitude;
         // add total leakage calculation for this centroid id
-        const pings = jsonData.pings.filter(p => p.centroid_id === c.id);
+        const pings = jsonData.pings.filter(p => centroidLookup[p.centroid_id].name === c.name);
         const totalSoc = pings.reduce((s, p) => s + p.soc_lost, 0);
         const gm = `https://www.google.com/maps?q=${lat},${lon}`;
         // wrap text fields in quotes
@@ -742,3 +912,79 @@ function updatePivot() {
 }
 
 
+function displaySwapFlow(bms_id) {
+    const container = document.getElementById("SwapFlowBox");
+
+    // Filter pings by bms_id
+    const filtered = jsonData.pings.filter(p => p.bms_id === bms_id);
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<p>No data found for BMS ID: ${bms_id}</p>`;
+        return;
+    }
+
+    // Aggregate soc_lost by last_swap_time and keep last_swap_state (choose the first one if multiple)
+    const aggregated = {};
+
+    filtered.forEach(p => {
+        const key = p.last_swap_time;
+        if (!aggregated[key]) {
+            aggregated[key] = { last_swap_state: p.last_swap_state, soc_lost: 0 };
+        }
+        aggregated[key].soc_lost += p.soc_lost;
+    });
+
+    // Convert aggregated object to sorted array
+    const sorted = Object.entries(aggregated)
+        .map(([last_swap_time, data]) => ({ last_swap_time, ...data }))
+        .sort((a, b) => new Date(a.last_swap_time) - new Date(b.last_swap_time));
+
+
+    let tableHTML = `<b>Chronological Swap and Leakage Events</b><br><br>`;
+
+    sorted.forEach(row => {
+        // Convert last_swap_time to local time if needed
+        let to_display = row.last_swap_time;
+
+        if (batteryUseLocalHour && row.last_swap_time !== "Unknown") {
+            const utcDate = new Date(row.last_swap_time);
+
+            to_display = utcDate.toLocaleString("en-CA", {
+                timeZone: batteryDetectedTimeZone,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false
+            }).replace(',', ''); // remove comma
+
+        }
+
+        tableHTML += `<span id="arrow">&darr;</span><div class="swap-container">`;
+
+        tableHTML += `
+            <div class="swap-flow-row">
+                <span class="swap-state"><b>${row.last_swap_state}</b></span>
+            </div>`;
+
+        tableHTML += `
+            <div class="swap-flow-row">
+                <span class="swap-time">${to_display}</span>
+            </div>`;
+
+        tableHTML += `</div>`;
+
+        if (row.soc_lost > 0) {
+            tableHTML += `
+            <span id="arrow">&darr;</span>
+            <div class="swap-soc-lost">
+                <span class="soc-label">SOC Lost:</span>
+                <span class="soc-value">${row.soc_lost}</span>
+            </div>`;
+        }
+    });
+
+    container.innerHTML = tableHTML;
+}

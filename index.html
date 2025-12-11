@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Leakage Visualizer</title>
+    <title>Charging Visualizer - Pivot Table Enabled</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Leaflet -->
@@ -32,6 +32,11 @@
             <div id="topbar">
                 <label>Upload JSON:</label>
                 <input type="file" id="fileInput" accept=".json">
+
+                <div id="hourControls" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <input type="checkbox" id="hourLocalToggle" checked>
+                    <label for="hourLocalToggle">Show local time (<span id="detectedTimezone">UTC</span>)</label>
+                </div>
 
                 <h1 id="fileDateTitle">
                     No file loaded
@@ -74,33 +79,62 @@
             <div id="map"></div>
         </div>
 
-        <div id="detailPanel">
+        <div id="centroidPanel">
+            
             <h3>Centroid Details</h3>
             <div id="centroidDetails">Click a centroid.</div>
 
             <div class="chart-box">
-                <div id="hourControls" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                    <input type="checkbox" id="hourLocalToggle">
-                    <label for="hourLocalToggle">Show local time (<span id="detectedTimezone">UTC</span>)</label>
-                </div>
                 <canvas id="hourChart"></canvas>
             </div>
 
             <div class="chart-box">
                 <canvas id="amperageChart"></canvas>
             </div>
-
             <div class="chart-box">
+                Click on any battery below to see its details:
+
                 <canvas id="bmsChart"></canvas>
             </div>
 
         </div>
 
+
+
+
+        <div id="batteryPanel">
+
+            <div id="batteryDetailsContainer" style="margin-top:20px;">
+                <h3>Battery Details</h3>
+                <div id="batteryDetails">Select a battery to view details.</div>
+
+                
+
+                <div class="chart-box">
+                    <canvas id="batteryHourChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="batteryAmperageChart"></canvas>
+                </div>
+
+                <div class="chart-box">
+                    Select a centroid to view details:
+                    <canvas id="batteryCentroidChart"></canvas>
+                </div>
+
+                <div class="chart-box" id="SwapFlowBox">
+                    <b>Chronological Swap and Leakage Events</b>
+                </div>
+
+            </div>
+
+
+        </div>
+    </div>
     </div>
 
     <script src="logic.js"></script>
 
 </body>
-
 
 </html>
