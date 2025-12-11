@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Charging Visualizer - Pivot Table Enabled</title>
+    <title>Leakage Visualizer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Leaflet -->
@@ -20,6 +20,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
     <link rel="stylesheet" href="styles.css">
+
+    <link rel="icon"
+        href="https://cdn.prod.website-files.com/66b0a72103f05e91497d72b7/672df97bd4912f949d26bd48_Spiro%20Fav%20Icon%2032x32.png"
+        type="image/png">
 
     <script src="tabulator_esm.js"></script>
 </head>
@@ -80,7 +84,7 @@
         </div>
 
         <div id="centroidPanel">
-            
+
             <h3>Centroid Details</h3>
             <div id="centroidDetails">Click a centroid.</div>
 
@@ -108,7 +112,7 @@
                 <h3>Battery Details</h3>
                 <div id="batteryDetails">Select a battery to view details.</div>
 
-                
+
 
                 <div class="chart-box">
                     <canvas id="batteryHourChart"></canvas>
@@ -133,9 +137,8 @@
     </div>
     </div>
 
-    <script src="logic.js?v=1.0.1"></script>
+    <script src="logic.js?v=1.0.2"></script>
 
 </body>
-
 
 </html>

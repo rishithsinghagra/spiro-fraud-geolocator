@@ -520,6 +520,13 @@ function showCentroidDetails(c) {
             }
         });
     }
+
+    const bms_id_set = new Set(pings.map(p => p.bms_id).filter(Boolean));
+    if (bms_id_set.size === 1) {
+        const onlyBmsId = [...bms_id_set][0];
+        showBatteryDetails(onlyBmsId);
+    }
+
     // update visibility warning now that details are rendered
     updateCentroidVisibilityWarning(c);
 
