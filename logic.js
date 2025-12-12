@@ -987,7 +987,7 @@ function displaySwapFlow(bms_id) {
             tableHTML += `
             <span id="arrow">&darr;</span>
             <div class="swap-soc-lost">
-                <span class="soc-label">SOC Lost:</span>
+                <span class="soc-label">SOC Leaked:</span>
                 <span class="soc-value">${row.soc_lost}</span>
             </div>`;
         }
@@ -995,3 +995,4 @@ function displaySwapFlow(bms_id) {
 
     container.innerHTML = tableHTML;
 }
+
