@@ -13,6 +13,7 @@ let batteryAmperageChart = null;
 let currentBatteryId = null;
 let batteryUseLocalHour = true;
 let batteryDetectedTimeZone = "UTC";
+let desktopPaneSizes = ["30%", "35%", "20%", "15%"]
 
 
 let centroidMarkers = {};
@@ -24,6 +25,9 @@ let currentDetailPings = [];
 let dataDate = null; // ISO date string (YYYY-MM-DD) extracted from filename
 let currentDetailCentroid = null;
 let selectedCentroidLayer = null;
+let panels_slider = []
+let panels_slider_pos = null
+let panels_slider_max_pos = null
 
 // ------------------------------------------------------------
 // Init: map & UI
@@ -987,7 +991,7 @@ function displaySwapFlow(bms_id) {
             tableHTML += `
             <span id="arrow">&darr;</span>
             <div class="swap-soc-lost">
-                <span class="soc-label">SOC Leaked:</span>
+                <span class="soc-label">SOC Lost:</span>
                 <span class="soc-value">${row.soc_lost}</span>
             </div>`;
         }
@@ -996,3 +1000,88 @@ function displaySwapFlow(bms_id) {
     container.innerHTML = tableHTML;
 }
 
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("arrow1").addEventListener("click", () => {
+        if (panels_slider_pos === 1) {
+            return;
+        } else {
+            panels_slider_pos--;
+            mobileUpdatePaneSizes();
+        }
+    });
+
+    document.getElementById("arrow2").addEventListener("click", () => {
+        if (panels_slider_pos === panels_slider_max_pos) {
+            return;
+        } else {
+            panels_slider_pos++;
+            mobileUpdatePaneSizes();
+        }
+    });
+
+    handleResponsiveLayout();
+});
+
+window.addEventListener("resize", () => {
+    handleResponsiveLayout();
+});
+
+function handleResponsiveLayout() {
+    const mq = window.matchMedia("(max-width: 1200px)");
+
+    if (mq.matches) {
+        prepMobileFormat();
+        mobileUpdatePaneSizes();
+    }
+
+    else {
+        prepDesktopFormat();
+        desktopUpdatePaneSizes();
+    }
+
+}
+
+function prepMobileFormat() {
+    const tablePanel = document.getElementById("tablePanel");
+    const mapPanel = document.getElementById("mapPanel");
+    const centroidPanel = document.getElementById("centroidPanel");
+    const batteryPanel = document.getElementById("batteryPanel");
+    panels_slider = [tablePanel, mapPanel, centroidPanel, batteryPanel]
+    panels_slider_pos = 1
+    panels_slider_max_pos = panels_slider.length - 1
+    showArrows();
+}
+
+function mobileUpdatePaneSizes() {
+    panels_slider.forEach((panel, index) => {
+        if (index === panels_slider_pos - 1 || index === panels_slider_pos) {
+            panel.style.visibility = "visible"
+            panel.style.width = "50%"
+        } else {
+            panel.style.width = "0%"
+            panel.style.visibility = "hidden"
+        }
+    })
+}
+
+// Function that triggers showing arrows
+function showArrows() {
+    document.getElementById("arrowContainer").style.display = "flex";
+}
+
+function prepDesktopFormat() {
+    hideArrows();
+    desktopUpdatePaneSizes();
+}
+
+function desktopUpdatePaneSizes() {
+    panels_slider.forEach((panel, index) => {
+        panel.style.visibility = "visible"
+        panel.style.width = desktopPaneSizes[index]
+    })
+}
+
+function hideArrows() {
+    document.getElementById("arrowContainer").style.display = "none";
+}

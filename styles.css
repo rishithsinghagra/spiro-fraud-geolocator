@@ -213,3 +213,34 @@ body {
 h3 {
     text-align: center;
 }
+
+
+/* CSS */
+#arrowContainer {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: none; /* hidden by default */
+    flex-direction: row;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.arrow {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    font-size: 24px;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.arrow:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
