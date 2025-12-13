@@ -15,7 +15,6 @@ let batteryUseLocalHour = true;
 let batteryDetectedTimeZone = "UTC";
 let desktopPaneSizes = ["30%", "35%", "20%", "15%"]
 
-
 let centroidMarkers = {};
 let centroidLayer;
 let map;
@@ -28,6 +27,8 @@ let selectedCentroidLayer = null;
 let panels_slider = []
 let panels_slider_pos = null
 let panels_slider_max_pos = null
+let userLocationLayer = null;
+
 
 // ------------------------------------------------------------
 // Init: map & UI
@@ -211,6 +212,7 @@ function getAllLastLevelGroupsRecursive(group) {
 
 function sort_by_soc(tabulatorTable) {
     tabulatorTable.setSort([
+        { column: "group_sort_key_6", dir: "desc" },
         { column: "group_sort_key_5", dir: "desc" },
         { column: "group_sort_key_4", dir: "desc" },
         { column: "group_sort_key_3", dir: "desc" },
@@ -231,13 +233,15 @@ function renderTable(pings) {
             centroid_name: cent.name,
             centroid_type: cent.type,
             hour: p.hour,
+            last_mapped: p.last_mapped,
             amperage: p.amperage,
             soc_lost: p.soc_lost,
             group_sort_key_1: "0000000000",
             group_sort_key_2: "0000000000",
             group_sort_key_3: "0000000000",
             group_sort_key_4: "0000000000",
-            group_sort_key_5: "0000000000"
+            group_sort_key_5: "0000000000",
+            group_sort_key_6: "0000000000"
         };
     });
 
@@ -267,6 +271,7 @@ function renderTable(pings) {
         },
 
         initialSort: [
+            { column: "group_sort_key_6", dir: "desc" },
             { column: "group_sort_key_5", dir: "desc" },
             { column: "group_sort_key_4", dir: "desc" },
             { column: "group_sort_key_3", dir: "desc" },
@@ -320,14 +325,15 @@ function renderTable(pings) {
             { title: "Type", field: "centroid_type", headerFilter: "input", visible: true },
             { title: "Hour", field: "hour", sorter: "number", visible: false },
             { title: "Amperage", field: "amperage", headerFilter: true, visible: true },
+            { title: "Last Mapped", field: "last_mapped", headerFilter: true, visible: true},
             { title: "SOC Lost", field: "soc_lost", visible: false },
             { title: "GroupSort1", field: "group_sort_key_1", visible: false },
             { title: "GroupSort2", field: "group_sort_key_2", visible: false },
             { title: "GroupSort3", field: "group_sort_key_3", visible: false },
             { title: "GroupSort4", field: "group_sort_key_4", visible: false },
             { title: "GroupSort5", field: "group_sort_key_5", visible: false },
+            { title: "GroupSort6", field: "group_sort_key_6", visible: false },
         ],
-
     });
 
     pingTableTabulator.on("rowMouseEnter", function (e, row) {
@@ -450,7 +456,46 @@ function setupMap() {
     map.on('moveend', () => {
         if (currentDetailCentroid) updateCentroidVisibilityWarning(currentDetailCentroid);
     });
+
+    userLocationLayer = L.layerGroup().addTo(map);
 }
+
+function showUserLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by this browser.");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            userLocationLayer.clearLayers();
+
+            const marker = L.marker([lat, lng])
+                .bindPopup("You are here");
+
+            const accuracyCircle = L.circle([lat, lng], {
+                radius: accuracy
+            });
+
+            userLocationLayer.addLayer(marker);
+            userLocationLayer.addLayer(accuracyCircle);
+
+            map.setView([lat, lng], 15);
+        },
+        (error) => {
+            alert("Unable to retrieve your location.");
+            console.error(error);
+        },
+        {
+            enableHighAccuracy: true
+        }
+    );
+}
+
 
 function renderCentroids(centroids) {
     centroidLayer.clearLayers();
@@ -991,7 +1036,7 @@ function displaySwapFlow(bms_id) {
             tableHTML += `
             <span id="arrow">&darr;</span>
             <div class="swap-soc-lost">
-                <span class="soc-label">SOC Lost:</span>
+                <span class="soc-label">Illegal SOC Charged:</span>
                 <span class="soc-value">${row.soc_lost}</span>
             </div>`;
         }

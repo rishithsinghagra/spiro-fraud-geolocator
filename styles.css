@@ -244,3 +244,19 @@ h3 {
 .arrow:hover {
     background-color: rgba(0, 0, 0, 0.8);
 }
+
+#userLocButton {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 1000; /* above Leaflet tiles and controls */
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#userLocButton:hover {
+    background: #f5f5f5;
+}
