@@ -904,50 +904,124 @@ function highlightSelectedCentroid(c) {
 // Export helper: given a Tabulator group, export unique centroids as CSV
 function exportGroupCSV(group, labelHint) {
     const rows = getAllRows(group || {});
-
-    // collect unique centroid names
-    const names = new Set();
-    rows.forEach(r => {
-        const name = r.getData?.()?.centroid_name ?? r.centroid_name;
-        if (name != null) names.add(String(name));
-    });
-
-    if (names.size === 0) {
-        alert("No centroids to export for this group");
+    if (!rows.length) {
+        alert("No data to export for this group");
         return;
     }
 
-    // CSV header
-    const header = ["centroid_name", "total_leakage", "latitude", "longitude", "google_maps_link"];
+    // Collect unique centroid names
+    const names = new Set();
+    rows.forEach(r => {
+        const name = r.getData?.()?.centroid_name ?? r.centroid_name;
+        if (name) names.add(String(name));
+    });
+
+    if (!names.size) {
+        alert("No centroids found");
+        return;
+    }
+
+    const header = [
+        "centroid_name",
+        "centroid_type",
+        "country",
+        "latitude",
+        "longitude",
+        "google_maps",
+        "total_soc_lost",
+        "unique_bms_count",
+        "bms_ids",
+        "soc_<18A",
+        "soc_>=18A",
+        "first_event_utc",
+        "last_event_utc",
+        "peak_hour_utc",
+        "soc_by_hour"
+    ];
+
     const lines = [header.join(",")];
 
     names.forEach(name => {
-        // find the first matching centroid by name
-        const id = Object.values(centroidLookup).find(c => c.name === name)?.id;
-        if (!id) return; // skip if no centroid found
-        const c = centroidLookup[id];
-        if (!c) return;
-        const lat = c.latitude;
-        const lon = c.longitude;
-        // add total leakage calculation for this centroid id
-        const pings = jsonData.pings.filter(p => centroidLookup[p.centroid_id].name === c.name);
-        const totalSoc = pings.reduce((s, p) => s + p.soc_lost, 0);
-        const gm = `https://www.google.com/maps?q=${lat},${lon}`;
-        // wrap text fields in quotes
-        lines.push(`"${name}",${totalSoc},${lat},${lon},"${gm.replace(/"/g, '""')}"`);
+        const centroid = Object.values(centroidLookup).find(c => c.name === name);
+        if (!centroid) return;
+
+        const pings = jsonData.pings.filter(
+            p => centroidLookup[p.centroid_id]?.name === name
+        );
+
+        if (!pings.length) return;
+
+        let totalSoc = 0;
+        let socLt18 = 0;
+        let socGte18 = 0;
+        let firstSeen = null;
+        let lastSeen = null;
+
+        const hourly = Array(24).fill(0);
+        const bmsSet = new Set();
+        const country = pings.find(p => p.country)?.country || "";
+
+        pings.forEach(p => {
+            totalSoc += p.soc_lost;
+            bmsSet.add(p.bms_id);
+
+            const h = Number(p.hour);
+            if (!Number.isNaN(h)) hourly[h] += p.soc_lost;
+
+            if (typeof p.amperage === "number") {
+                p.amperage < 18 ? socLt18 += p.soc_lost : socGte18 += p.soc_lost;
+            } else {
+                p.amperage?.startsWith("<")
+                    ? socLt18 += p.soc_lost
+                    : socGte18 += p.soc_lost;
+            }
+
+            if (p.last_swap_time && p.last_swap_time !== "Unknown") {
+                const d = new Date(p.last_swap_time);
+                if (!firstSeen || d < firstSeen) firstSeen = d;
+                if (!lastSeen || d > lastSeen) lastSeen = d;
+            }
+        });
+
+        const peakHour = hourly.indexOf(Math.max(...hourly));
+        const socByHour = hourly
+            .map((v, h) => (v > 0 ? `${h}:${v}` : null))
+            .filter(Boolean)
+            .join(" | ");
+
+        const gm = `https://www.google.com/maps?q=${centroid.latitude},${centroid.longitude}`;
+
+        const row = [
+            `"${name}"`,
+            centroid.type,
+            country,
+            centroid.latitude,
+            centroid.longitude,
+            `"${gm}"`,
+            totalSoc,
+            bmsSet.size,
+            `"${[...bmsSet].join("|")}"`,
+            socLt18,
+            socGte18,
+            firstSeen ? firstSeen.toISOString() : "",
+            lastSeen ? lastSeen.toISOString() : "",
+            peakHour,
+            `"${socByHour}"`
+        ];
+
+        lines.push(row.join(","));
     });
 
     const csv = lines.join("\n");
 
-    // build filename using label hint and dataDate
     const safeLabel = String(labelHint || "group").replace(/[^a-z0-9_\-]/gi, "_");
-    const datepart = dataDate || new Date().toISOString().slice(0, 10);
-    const filename = `export_${safeLabel}_${datepart}.csv`;
+    const datePart = dataDate || new Date().toISOString().slice(0, 10);
+    const filename = `centroid_export_${safeLabel}_${datePart}.csv`;
 
-    // trigger download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -955,6 +1029,7 @@ function exportGroupCSV(group, labelHint) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
 
 
 // ------------------------------------------------------------
