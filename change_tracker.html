@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Leakage Change Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=0.5">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tabulator -->
+    <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
+
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <link rel="stylesheet" href="change_tracker.css?v=1.0.5">
+
+    <link rel="icon"
+        href="https://cdn.prod.website-files.com/66b0a72103f05e91497d72b7/672df97bd4912f949d26bd48_Spiro%20Fav%20Icon%2032x32.png"
+        type="image/png">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <link rel="apple-touch-icon" href="apple_app_icon.jpg">
+
+    <script src="tabulator_esm.js"></script>
+</head>
+
+<body>
+
+    <div id="loadingOverlay" hidden>Processing...</div>
+
+    <div id="layout">
+
+        <div id="utilPanel" class="gridPanel">
+            <input type="file" name="files[]" id="fileInput" multiple accept=".json">
+            <h2>Available and Selected Dates</h2>
+            <div id="availableDatesContainer" class="subPanel">
+            </div>
+
+        </div>
+
+        <div id="pivotPanel" class="gridPanel">
+            <ul id="pivotList" class="pivot-list">
+                <li data-value="country">Country</li>
+                <li data-value="centroid_type">Type</li>
+                <li data-value="centroid_name">Centroid Name</li>
+                <li data-value="bms">BMS ID</li>
+                <li data-value="last_mapped">Last Mapping</li>
+            </ul>
+
+            <button onclick="sort_by_soc(pingTableTabulator)">Sort SOC Lost Descending</button>
+
+            <select id="pivotSelect" name="pivot[]" multiple hidden></select>
+        </div>
+
+        <div id="tablePanel" class="gridPanel">
+            <div id="pingTable"></div>
+        </div>
+
+        <div id="tolerancePanel" class="gridPanel">
+            <b>Station Identification Tolerance</b>
+            Classify a centroid as its closest station if it is within this range.
+            <span>5m<input type="range" id="toleranceSlider" name="Distance" min="5" max="200" value="100">200m</span>
+        </div>
+
+        <div id="splitByPanel" class="gridPanel">
+            <b>Split Selection By</b>
+            <div id="splitOptions">
+                <div class="splitOption" data-value="none" style="background: white;">None</div>
+                <div class="splitOption" data-value="centroid_name">Centroid Name</div>
+                <div class="splitOption" data-value="bms">BMS ID</div>
+                <div class="splitOption" data-value="last_mapped">Last Mapping</div>
+                <div class="splitOption" data-value="country">Country</div>
+            </div>
+            </ul>
+        </div>
+
+        <div id="graphUtilsPanel" class="gridPanel">
+            <b>Graph Tools</b>
+            <div id="graphUtilsButtons">
+            <button onclick="clearGraph()">Clear Graph</button>
+            </div>
+        </div>
+        <div id="seriesToolsPanel" class="gridPanel">
+            <b>Series Tools</b>
+            <div id="seriesToolButtons">
+            <button onclick="lock_current_series()">Lock Current Series</button>
+            <button onclick="clear_locked_series()">Clear Locked Series</button>
+            </div>
+        </div>
+        <div id="graphPanel" class="gridPanel">
+            <canvas id="mainChart"></canvas>
+        </div>
+
+    </div>
+
+    <script src="change_tracker.js?v=1.0.5"></script>
+
+
+</body>
+
+</html>
