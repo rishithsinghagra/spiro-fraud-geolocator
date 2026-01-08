@@ -34,6 +34,9 @@ let userLocationLayer = null;
 // Init: map & UI
 // ------------------------------------------------------------
 window.onload = () => {
+    if (confirm("New version available for use with reports in the Global Onedrive folder. Do you want to go to the new version?")) {
+        window.location.href = "https://rishithsinghagra.github.io/spiro-fraud-geolocator/index_n";
+    }
     setupPivotList();
     setupMap();
     setupHourToggle();
@@ -1205,3 +1208,4 @@ function desktopUpdatePaneSizes() {
 function hideArrows() {
     document.getElementById("arrowContainer").style.display = "none";
 }
+
