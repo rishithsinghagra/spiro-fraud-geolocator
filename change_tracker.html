@@ -19,13 +19,11 @@
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-    <link rel="stylesheet" href="change_tracker.css?v=1.0.5">
+    <link rel="stylesheet" href="change_tracker.css?v=1.1.5">
 
     <link rel="icon"
         href="https://cdn.prod.website-files.com/66b0a72103f05e91497d72b7/672df97bd4912f949d26bd48_Spiro%20Fav%20Icon%2032x32.png"
         type="image/png">
-
-    <meta name="apple-mobile-web-app-capable" content="yes">
 
     <link rel="apple-touch-icon" href="apple_app_icon.jpg">
 
@@ -41,6 +39,7 @@
         <div id="utilPanel" class="gridPanel">
             <input type="file" name="files[]" id="fileInput" multiple accept=".json">
             <h2>Available and Selected Dates</h2>
+            <button onclick="invertSelectedDates()">Invert Selection</button>
             <div id="availableDatesContainer" class="subPanel">
             </div>
 
@@ -101,7 +100,7 @@
 
     </div>
 
-    <script src="change_tracker.js?v=1.0.5"></script>
+    <script src="change_tracker.js?v=1.1.5"></script>
 
 
 </body>

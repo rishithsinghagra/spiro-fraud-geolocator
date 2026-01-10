@@ -19,28 +19,29 @@
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-    <link rel="stylesheet" href="styles_n.css?v=1.0.5">
+    <link rel="stylesheet" href="styles_n.css?v=1.1.5">
 
     <link rel="icon"
         href="https://cdn.prod.website-files.com/66b0a72103f05e91497d72b7/672df97bd4912f949d26bd48_Spiro%20Fav%20Icon%2032x32.png"
         type="image/png">
 
-    <meta name="apple-mobile-web-app-capable" content="yes">
-
     <link rel="apple-touch-icon" href="apple_app_icon.jpg">
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 
     <script src="tabulator_esm.js"></script>
 </head>
 
 <body>
 
-
     <div id="layout">
 
         <div id="utilPanel" class="gridPanel">
             <input type="file" id="fileInput" accept=".json">
 
-            
+
             <h1 id="fileDateTitle">
                 No file loaded
             </h1>
@@ -51,7 +52,8 @@
             </div>
 
 
-            <a id="toolChangeButton" href="change_tracker.html" rel="noopener noreferrer" target="_blank">Go To Change Tracker</a>
+            <a id="toolChangeButton" href="change_tracker.html" rel="noopener noreferrer" target="_blank">Go To Change
+                Tracker</a>
 
             <button id="userLocButton" onclick="showUserLocation()">Show My Location</button>
 
@@ -106,7 +108,8 @@
                 Click on any battery below to see its details:
 
                 <div class="chart-box">
-
+                    <button id="downloadBmsChartButton" onclick="exportBmsChartHTML()">Download BMS Chart as
+                        HTML</button>
                     <canvas id="bmsChart"></canvas>
                 </div>
 
@@ -145,7 +148,7 @@
     </div>
 
 
-    <script src="logic_n.js?v=1.0.5"></script>
+    <script src="logic_n.js?v=1.1.5"></script>
     <!-- HTML -->
     <div id="arrowContainer">
         <div id="arrow1" class="arrow">«</div>

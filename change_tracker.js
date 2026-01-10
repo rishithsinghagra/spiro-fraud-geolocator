@@ -522,7 +522,7 @@ function renderTable() {
 
         graphData = rowData;
 
-        defaultKey = group.getKey();
+        defaultKey = group.getKey()
 
         renderGraph();
     });
@@ -556,4 +556,13 @@ function lock_current_series() {
 
 function clear_locked_series() {
     locked_series = null;
+}
+
+
+function invertSelectedDates() {
+    const checkboxes = document.querySelectorAll('input[name="includedDates"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = !checkbox.checked;
+    });
+    renderAll();
 }

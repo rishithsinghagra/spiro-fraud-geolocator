@@ -774,6 +774,59 @@ function updateBmsChart(pings) {
     });
 }
 
+function exportBmsChartHTML() {
+    if (!bmsChart) return;
+
+    const labels = JSON.stringify(bmsChart.data.labels);
+    const data = JSON.stringify(bmsChart.data.datasets[0].data);
+
+    // Minimal HTML page
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>BMS Chart Export</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { max-width: 800px; max-height: 600px; }
+    </style>
+</head>
+<body>
+    <h2>BMS Chart</h2>
+    <canvas id="bmsChart"></canvas>
+    <script>
+        const ctx = document.getElementById('bmsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ${labels},
+                datasets: [{
+                    data: ${data},
+                    backgroundColor: "#f54242"
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: "BMS ID" }, ticks: { display: true, maxRotation: 90, minRotation: 90, autoSkip: false } },
+                    y: { title: { display: true, text: "SOC Lost" } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+`;
+
+    // Open in new tab
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+}
+
+
 function centroidUpdateClosestStations(centroid_id) {
     const closest_stations_subpanel = document.getElementById("closestStations")
     let text_content = `<b>Closest Stations in CRM</b>`
