@@ -19,7 +19,7 @@
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-    <link rel="stylesheet" href="change_tracker.css?v=1.1.5">
+    <link rel="stylesheet" href="change_tracker.css?v=1.2.5">
 
     <link rel="icon"
         href="https://cdn.prod.website-files.com/66b0a72103f05e91497d72b7/672df97bd4912f949d26bd48_Spiro%20Fav%20Icon%2032x32.png"
@@ -46,6 +46,8 @@
         </div>
 
         <div id="pivotPanel" class="gridPanel">
+
+
             <ul id="pivotList" class="pivot-list">
                 <li data-value="country">Country</li>
                 <li data-value="centroid_type">Type</li>
@@ -54,9 +56,17 @@
                 <li data-value="last_mapped">Last Mapping</li>
             </ul>
 
+
             <button onclick="sort_by_soc(pingTableTabulator)">Sort SOC Lost Descending</button>
 
+
             <select id="pivotSelect" name="pivot[]" multiple hidden></select>
+
+            <div id="customGraphUtilsContainer">
+                <textarea id="customGraphLoadInput"
+                    placeholder="Custom Graph (enter unique values on newlines)"></textarea>
+                <button onclick="load_custom_graph()">Load</button>
+            </div>
         </div>
 
         <div id="tablePanel" class="gridPanel">
@@ -84,14 +94,14 @@
         <div id="graphUtilsPanel" class="gridPanel">
             <b>Graph Tools</b>
             <div id="graphUtilsButtons">
-            <button onclick="clearGraph()">Clear Graph</button>
+                <button onclick="clearGraph()">Clear Graph</button>
             </div>
         </div>
         <div id="seriesToolsPanel" class="gridPanel">
             <b>Series Tools</b>
             <div id="seriesToolButtons">
-            <button onclick="lock_current_series()">Lock Current Series</button>
-            <button onclick="clear_locked_series()">Clear Locked Series</button>
+                <button onclick="lock_current_series()">Lock Current Series</button>
+                <button onclick="clear_locked_series()">Clear Locked Series</button>
             </div>
         </div>
         <div id="graphPanel" class="gridPanel">
@@ -100,7 +110,7 @@
 
     </div>
 
-    <script src="change_tracker.js?v=1.1.5"></script>
+    <script src="change_tracker.js?v=1.2.5"></script>
 
 
 </body>

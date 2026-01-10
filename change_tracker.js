@@ -566,3 +566,36 @@ function invertSelectedDates() {
     });
     renderAll();
 }
+
+
+function load_custom_graph() {
+    const textarea = document.getElementById("customGraphLoadInput");
+    if (textarea.value.trim() === "") return;
+    if (!pingTableTabulator) return;
+
+    const lines = textarea.value
+        .split(/\r?\n/)
+        .map(line => line.replace(/\s+/g, ""))
+        .filter(line => line !== "");
+
+    const lineSet = new Set(lines);
+
+    const matchedGroups = pingTableTabulator
+        .getGroups(true)
+        .filter(group => lineSet.has(String(group.getKey().replace(/\s+/g, ""))));
+
+    let allRows = [];
+
+    matchedGroups.forEach(group => {
+        allRows.push(...getAllRows(group));
+    });
+
+    const rowData = allRows.map(row => row.getData());
+
+    graphData = rowData;
+
+    // optional: choose a default key (first matched group)
+    defaultKey = "custom_load";
+
+    renderGraph();
+}

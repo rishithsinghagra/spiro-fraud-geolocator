@@ -72,6 +72,7 @@ body {
     grid-column: 2;
     grid-row: 1;
     overflow: auto;
+    gap: 10px;
 }
 
 #tolerancePanel {
@@ -285,4 +286,23 @@ body {
 button {
     border-radius: 10px;
     padding: 10px;
+}
+
+#customGraphLoadInput {
+    width: 100%;
+    height: 100%;
+}
+
+#customGraphUtilsContainer {
+    width: 80%;
+    height: 20%;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+textarea {
+    resize: none;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
