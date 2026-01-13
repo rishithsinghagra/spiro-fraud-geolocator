@@ -85,6 +85,12 @@ body {
     overflow-y: auto;
 }
 
+#pingTable {
+    width: 95%;
+    height: 90%;
+    overflow: auto;
+}
+
 /* MAP PANEL */
 #mapPanel {
     position: absolute;
@@ -365,3 +371,4 @@ h3 {
     text-decoration: none;
     color: #00000000;
 }
+
