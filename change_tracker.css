@@ -97,6 +97,12 @@ body {
     grid-column: 4;
 }
 
+#pingTable {
+    width: 95%;
+    height: 90%;
+    overflow: auto;
+}
+
 #seriesToolButtons {
     display: flex;
     flex-direction: row;
@@ -306,3 +312,4 @@ textarea {
     overflow-x: hidden;
     overflow-y: auto;
 }
+
