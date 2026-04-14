@@ -76,7 +76,7 @@
         <div id="tolerancePanel" class="gridPanel">
             <b>Station Identification Tolerance</b>
             Classify a centroid as its closest station if it is within this range.
-            <span>5m<input type="range" id="toleranceSlider" name="Distance" min="5" max="200" value="100">200m</span>
+            <span>5m<input type="range" id="toleranceSlider" name="Distance" min="5" max="500" value="100">500m</span>
         </div>
 
         <div id="splitByPanel" class="gridPanel">
@@ -85,7 +85,9 @@
                 <div class="splitOption" data-value="none" style="background: white;">None</div>
                 <div class="splitOption" data-value="centroid_name">Centroid Name</div>
                 <div class="splitOption" data-value="bms">BMS ID</div>
+                <div class="splitOption" data-value="brand">Brand</div>
                 <div class="splitOption" data-value="last_mapped">Last Mapping</div>
+                <div class="splitOption" data-value="last_mapped_type">Last Mapping Type</div>
                 <div class="splitOption" data-value="country">Country</div>
             </div>
             </ul>
